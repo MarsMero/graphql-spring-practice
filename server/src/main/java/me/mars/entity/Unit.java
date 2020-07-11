@@ -38,11 +38,11 @@ public class Unit {
     @OneToMany(mappedBy = "order")
     private List<OrderUnit> orderUnits = new ArrayList<>();
     @NotNull
-    private Integer amount;
+    private Integer stockAmount;
 
-    public Unit(Color color, Size size, Integer amount) {
+    public Unit(Color color, Size size, Integer stockAmount) {
         this.color = color;
         this.size = size;
-        this.amount = amount;
+        this.stockAmount = stockAmount;
     }
 }

@@ -3,25 +3,22 @@ import ReactDOM from 'react-dom';
 import * as serviceWorker from './serviceWorker';
 
 import {
-  ApolloClient, InMemoryCache, NormalizedCacheObject,
+  ApolloClient, NormalizedCacheObject,
   HttpLink, ApolloProvider, gql
 } from '@apollo/client';
 
 import CssBaseline from '@material-ui/core/CssBaseline';
 
 import Pages from './pages/main';
-import { typeDefs, resolvers } from './resolvers';
+import { cache } from './cache';
 
-const cache = new InMemoryCache();
 const link = new HttpLink({
   uri: 'http://localhost:8080/graphql'
 });
 
 const client: ApolloClient<NormalizedCacheObject> = new ApolloClient({
   cache,
-  link,
-  typeDefs,
-  resolvers
+  link
 });
 
 cache.writeQuery({

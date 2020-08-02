@@ -6,6 +6,7 @@ import { TextField, Select, FormControl, InputLabel, MenuItem,
 import { gql, useQuery, useMutation } from '@apollo/client';
 import { NumField } from '../components/num-field';
 import GET_CART_ITEMS from '../gql/cart-items.graphql';
+import { addToCart } from '../variables/cart';
 
 const GET_COLORS = gql`
   query colors {
@@ -22,12 +23,6 @@ const GET_SIZES = gql`
   }
 `;
 
-const ADD_TO_CART = gql`
-  mutation addToCart($color: Color!, $size: String!) {
-    addToCart(color: $color, size: $size) @client
-  }
-`;
-
 const GET_UNITS = gql`
   query units {
     units {
@@ -41,6 +36,7 @@ const GET_UNITS = gql`
 const GET_CART_ITEM = gql`
   query cartItem($hexCode: String!, $size: String!) {
     cartItem(hexCode: $hexCode, size: $size) @client {
+      id
       color {
         hexCode
         name
@@ -142,7 +138,7 @@ const Cart: React.FC = () => {
       </Grid>
       <Grid container spacing={2} className={classes.rows}>
         <Grid item xs={3}>
-          <CartButton color={color} size={size} hexCodeToName={hexCodeToName}/>
+          <CartButton hexCode={color} size={size} hexCodeToName={hexCodeToName}/>
         </Grid>
       </Grid>
       <OrderButton name={name} age={age} valid/>
@@ -159,53 +155,36 @@ function handleChangeWith(setState: any) {
 // TODO move button to new file
 function CartButton(props: any) {
   const {
-    color,
+    hexCode,
     size,
     hexCodeToName
   } = props
-  const [mutate, {loading}] = useMutation(ADD_TO_CART, {
-    variables: {
-      color: {
-        name: hexCodeToName.get(color),
-        hexCode: color
-      },
-      size
-    },
-    refetchQueries: [
-      {
-        query: GET_CART_ITEM,
-        variables: {
-          hexCode: color,
-          size
-        }
-      }
-    ]
-  });
   const {data: unitData} = useQuery(GET_UNITS);
   const [disabled, setDisabled] = useState(true);
   const {data: cartData} = useQuery(GET_CART_ITEM, {
     variables: {
-      hexCode: color,
-      size
+      hexCode,
+      size,
     }
   });
 
   useEffect(() => {
     function canAddToCart(): boolean {
-      if (!unitData || !color || !size) {
+      if (!unitData || !hexCode || !size) {
         return false;
       }
-      const {stockAmount} = unitData.units.find((x: any) => x.hexCode === color && x.size === size)
+      const {stockAmount} = unitData.units.find((x: any) => x.hexCode === hexCode && x.size === size)
       const cartAmount = cartData ? cartData.cartItem.amount : 0;
       return stockAmount > cartAmount;
     }
 
     setDisabled(!canAddToCart())
-  },[unitData, cartData, color, size]);
+  },[unitData, cartData, hexCode, size]);
 
 
   const handleClick = () => {
-    mutate();
+    const color = { hexCode, name: hexCodeToName.get(hexCode) };
+    addToCart({ color, size });
   };
   return (
     <Button onClick={handleClick} variant="contained" color="primary" 

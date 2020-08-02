@@ -19,5 +19,5 @@ public class PlacedOrderData {
     private String name;
     private Integer age;
     private Instant timestamp;
-    private List<PlacedOrderUnitData> units;
+    private List<OrderUnitData> units;
 }

@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @GraphQLType(name = "Unit")
 public class UnitData {
-    private String color;
+    private String hexCode;
     private String size;
     private Integer stockAmount;
 }

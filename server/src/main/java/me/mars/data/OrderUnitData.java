@@ -11,9 +11,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@GraphQLType(name = "PlacedOrderUnit")
-public class PlacedOrderUnitData {
-    private String color;
+@GraphQLType(name = "OrderUnit")
+public class OrderUnitData {
+    private String hexCode;
     private String size;
     private Integer amount;
 }

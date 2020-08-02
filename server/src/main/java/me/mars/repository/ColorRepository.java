@@ -9,5 +9,5 @@ import java.util.Optional;
  * @author Marcin Szwałko
  */
 public interface ColorRepository extends JpaRepository<Color, Long> {
-    Optional<Color> findByName(String name);
+    Optional<Color> findByHexCode(String hexCode);
 }

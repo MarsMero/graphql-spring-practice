@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.util.List;
 
 /**
@@ -18,5 +17,5 @@ import java.util.List;
 public class PlaceOrderData {
     private String name;
     private Integer age;
-    private List<PlacedOrderUnitData> units;
+    private List<OrderUnitData> units;
 }

@@ -1,4 +1,4 @@
-package me.mars.service;
+package me.mars;
 
 import io.leangen.graphql.annotations.GraphQLArgument;
 import io.leangen.graphql.annotations.GraphQLMutation;
@@ -8,7 +8,7 @@ import io.leangen.graphql.spqr.spring.annotations.GraphQLApi;
 import me.mars.data.ColorData;
 import me.mars.data.PlaceOrderData;
 import me.mars.data.PlacedOrderData;
-import me.mars.data.PlacedOrderUnitData;
+import me.mars.data.OrderUnitData;
 import me.mars.data.UnitData;
 import me.mars.entity.Order;
 import me.mars.entity.OrderUnit;
@@ -17,7 +17,7 @@ import me.mars.repository.OrderRepository;
 import me.mars.repository.OrderUnitRepository;
 import me.mars.repository.SizeRepository;
 import me.mars.repository.UnitRepository;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,16 +27,16 @@ import java.util.stream.Collectors;
  * @author Marcin Szwałko
  */
 @GraphQLApi
-@Service
-public class OrderService {
+@Component
+public class OrderResolver {
     private OrderRepository orderRepository;
     private OrderUnitRepository orderUnitRepository;
     private ColorRepository colorRepository;
     private UnitRepository unitRepository;
     private SizeRepository sizeRepository;
 
-    public OrderService(OrderRepository orderRepository, OrderUnitRepository orderUnitRepository,
-                        ColorRepository colorRepository, UnitRepository unitRepository, SizeRepository sizeRepository) {
+    public OrderResolver(OrderRepository orderRepository, OrderUnitRepository orderUnitRepository,
+                         ColorRepository colorRepository, UnitRepository unitRepository, SizeRepository sizeRepository) {
         this.orderRepository = orderRepository;
         this.orderUnitRepository = orderUnitRepository;
         this.colorRepository = colorRepository;
@@ -50,7 +50,7 @@ public class OrderService {
             var unitDataList =
             orderUnitRepository.findAllByOrderId(order.getId()).stream().map(orderUnit -> {
                 var unit = orderUnit.getUnit();
-                return new PlacedOrderUnitData(unit.getColor().getName(), unit.getSize().getName(), orderUnit.getAmount());
+                return new OrderUnitData(unit.getColor().getHexCode(), unit.getSize().getName(), orderUnit.getAmount());
             }).collect(Collectors.toList());
             return new PlacedOrderData(order.getName(), order.getAge(), order.getTimestamp(), unitDataList);
         }).collect(Collectors.toList());
@@ -64,7 +64,7 @@ public class OrderService {
     @GraphQLQuery
     public List<UnitData> units() {
         return unitRepository.findAll().stream()
-                .map(unit -> new UnitData(unit.getColor().getName(), unit.getSize().getName(), unit.getStockAmount()))
+                .map(unit -> new UnitData(unit.getColor().getHexCode(), unit.getSize().getName(), unit.getStockAmount()))
                 .collect(Collectors.toList());
     }
 
@@ -72,7 +72,7 @@ public class OrderService {
     public boolean placeOrder(@GraphQLNonNull @GraphQLArgument(name = "params") PlaceOrderData placeOrder) {
         var order = createOrder(placeOrder.getName(), placeOrder.getAge());
         for (var unit : placeOrder.getUnits()) {
-            addUnitToOrder(order.getId(),unit.getColor(), unit.getSize(), unit.getAmount());
+            addUnitToOrder(order.getId(),unit.getHexCode(), unit.getSize(), unit.getAmount());
         }
         return true;
     }
@@ -85,11 +85,11 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    public OrderUnit addUnitToOrder(Long orderId, String colorName, String sizeName, Integer amount) {
+    public OrderUnit addUnitToOrder(Long orderId, String hexCode, String sizeName, Integer amount) {
         if (amount == null || amount < 1) {
             throw new IllegalArgumentException();
         }
-        var color = colorRepository.findByName(colorName).orElseThrow();
+        var color = colorRepository.findByHexCode(hexCode).orElseThrow();
         var size = sizeRepository.findByName(sizeName).orElseThrow();
         var unit = unitRepository.findUnitByColorIdAndSizeId(color.getId(), size.getId()).orElseThrow();
         var order = orderRepository.findById(orderId).orElseThrow();

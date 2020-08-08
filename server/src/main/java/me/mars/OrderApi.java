@@ -20,6 +20,7 @@ import me.mars.repository.UnitRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,15 +29,15 @@ import java.util.stream.Collectors;
  */
 @GraphQLApi
 @Component
-public class OrderResolver {
+public class OrderApi {
     private OrderRepository orderRepository;
     private OrderUnitRepository orderUnitRepository;
     private ColorRepository colorRepository;
     private UnitRepository unitRepository;
     private SizeRepository sizeRepository;
 
-    public OrderResolver(OrderRepository orderRepository, OrderUnitRepository orderUnitRepository,
-                         ColorRepository colorRepository, UnitRepository unitRepository, SizeRepository sizeRepository) {
+    public OrderApi(OrderRepository orderRepository, OrderUnitRepository orderUnitRepository,
+                    ColorRepository colorRepository, UnitRepository unitRepository, SizeRepository sizeRepository) {
         this.orderRepository = orderRepository;
         this.orderUnitRepository = orderUnitRepository;
         this.colorRepository = colorRepository;
@@ -52,7 +53,7 @@ public class OrderResolver {
                 var unit = orderUnit.getUnit();
                 return new OrderUnitData(unit.getColor().getHexCode(), unit.getSize().getName(), orderUnit.getAmount());
             }).collect(Collectors.toList());
-            return new PlacedOrderData(order.getName(), order.getAge(), order.getTimestamp(), unitDataList);
+            return new PlacedOrderData(order.getId(), order.getName(), order.getAge(), order.getTimestamp(), unitDataList);
         }).collect(Collectors.toList());
     }
 
@@ -69,12 +70,16 @@ public class OrderResolver {
     }
 
     @GraphQLMutation
-    public boolean placeOrder(@GraphQLNonNull @GraphQLArgument(name = "params") PlaceOrderData placeOrder) {
+    public PlacedOrderData placeOrder(@GraphQLNonNull @GraphQLArgument(name = "params") PlaceOrderData placeOrder) {
         var order = createOrder(placeOrder.getName(), placeOrder.getAge());
+        var placedOrderUnits = new ArrayList<OrderUnitData>();
         for (var unit : placeOrder.getUnits()) {
-            addUnitToOrder(order.getId(),unit.getHexCode(), unit.getSize(), unit.getAmount());
+            var placed = addUnitToOrder(order.getId(),unit.getHexCode(), unit.getSize(), unit.getAmount());
+            var placedUnit = placed.getUnit();
+            placedOrderUnits.add(new OrderUnitData(placedUnit.getColor().getHexCode(),
+                    placedUnit.getSize().getName(), placed.getAmount()));
         }
-        return true;
+        return new PlacedOrderData(order.getId(), order.getName(), order.getAge(), order.getTimestamp(), placedOrderUnits);
     }
 
     public Order createOrder(String name, Integer age) {

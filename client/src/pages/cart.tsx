@@ -1,12 +1,16 @@
-import React, { Fragment, useState, useEffect } from 'react';
+import React, { Fragment, useMemo, useCallback } from 'react';
 import { TextField, Select, FormControl, InputLabel, MenuItem,
   makeStyles, RadioGroup, FormLabel, FormControlLabel, Radio, 
-  Grid, Button, TableContainer, Paper, Table, TableHead, 
-  TableRow, TableCell, TableBody } from '@material-ui/core';
-import { gql, useQuery, useMutation } from '@apollo/client';
+  Grid, TableContainer, Paper, Table, TableHead, 
+  TableRow, TableCell, TableBody, FormHelperText } from '@material-ui/core';
+import { gql, useQuery } from '@apollo/client';
 import { NumField } from '../components/num-field';
-import GET_CART_ITEMS from '../gql/cart-items.graphql';
-import { addToCart } from '../variables/cart';
+import { OrderButton } from '../components/order-button';
+import { CartButton } from '../components/cart-button';
+import GET_CART_ITEMS from '../gql/cart.graphql';
+import { Illustration } from '../components/illustration';
+import { Result, JustOk as Ok, Err , Nothing } from '../util/result'; 
+import { useControlState } from '../functions/control';
 
 const GET_COLORS = gql`
   query colors {
@@ -23,41 +27,12 @@ const GET_SIZES = gql`
   }
 `;
 
-const GET_UNITS = gql`
-  query units {
-    units {
-      hexCode
-      size
-      stockAmount
-    }
-  }
-`;
-
-const GET_CART_ITEM = gql`
-  query cartItem($hexCode: String!, $size: String!) {
-    cartItem(hexCode: $hexCode, size: $size) @client {
-      id
-      color {
-        hexCode
-        name
-      }
-      size
-      amount
-    }
-  }
-`;
-
 const useStyles = makeStyles((theme) => ({
   formControl: {
     minWidth: 180
   },
   rows: {
     marginBottom: 15
-  },
-  vis: {
-    height: '100px',
-    width: 100,
-    backgroundColor: '#00FFFF'
   }
 }));
 
@@ -68,33 +43,43 @@ const useGetColorsQuery = () => {
     error,
   } = useQuery(GET_COLORS);
 
-  const [map, setMap] = useState(new Map());
-
-  useEffect(() => {
-    if (!error && !loading) {
-      const newMap = colors.colors.reduce((map: Map<string, string>, x:any) => (map.set(x.hexCode, x.name)), new Map())
-      setMap(newMap);
-    }
+  const hexCodeToName = useMemo(() => {
+    return colors?.colors.reduce((map: any, x: any) => (map.set(x.hexCode, x.name)), new Map())
   }, [colors]);
 
-  return {colors, loading, error, hexCodeToName: map};
+  const getColorName = useCallback((hexCode: string) => {
+    return hexCodeToName?.get(hexCode);
+  }, [colors]);
+
+  return {colors, loading, error, getColorName};
 }
 
-const Cart: React.FC = () => {
+const Cart: React.FC<any> = (props: any) => {
   const classes = useStyles();
   const {
     colors,
     loading,
     error,
-    hexCodeToName
+    getColorName
   } = useGetColorsQuery();
   const {
     data: sizes
   } = useQuery(GET_SIZES);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [color, setColor] = useState('');
-  const [size, setSize] = useState('');
+  const [name, nameHandlers] = useControlState(nameValidation);
+  const [age, ageHandlers] = useControlState(ageValidation);
+  const [color, colorHandlers] = useControlState();
+  const [size , sizeHandlers] = useControlState();
+
+  function nameValidation(name: string): Result<string, Nothing> {
+    if (/^([A-ZŚŻŹĄĘÓŁĆ]{1}[a-zà-öø-ÿęąśłżźć]+)$/.test(name)) return Ok();
+    else return Err('Name has to be a single word that starts with capital letter.');
+  }
+
+  function ageValidation(age: string): Result<string, Nothing> {
+    const ageNum = Number(age);
+    if (ageNum >= 18 && ageNum <= 100) return Ok();
+    else return Err('Age has to be in between 18 and 100.');
+  }
 
   if (loading) return <p>Loading...</p>
   if (error) return <p>ERROR</p>
@@ -108,89 +93,70 @@ const Cart: React.FC = () => {
     return (<FormControlLabel key={i} value={size} control={<Radio />} label={size} />);
   });
 
+  function handleOrderClick() {
+    nameHandlers.touch();
+    ageHandlers.touch();
+  }
+
+  function handleOrderSubmit() {
+    age.reset();
+    name.reset();
+  }
+
   return (
     <Fragment>
-      <Grid container spacing={2} className={classes.rows}>
-        <Grid item xs={3}>
-          <TextField fullWidth value={name} label="Name" onChange={handleChangeWith(setName)}/>
+      <Grid container spacing={1}>
+        <Grid item xs={6}>
+          <Grid container spacing={2} className={classes.rows}>
+            <Grid item xs={6}>
+              <TextField fullWidth value={name.value} label="Name"
+                helperText={name.dirty ? name.error : ''} error={!!name.error && name.dirty}
+                onChange={nameHandlers.change} onBlur={nameHandlers.touch}/>
+            </Grid>
+            <Grid item xs={6}>
+              <NumField fullWidth value={age.value} label="Age"
+                helperText={age.dirty ? age.error : ''} error={!!age.error && age.dirty}
+                onChange={ageHandlers.change} onBlur={ageHandlers.touch}/>
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} className={classes.rows}>
+            <Grid item xs={6}>
+              <FormControl fullWidth className={classes.formControl}>
+                <InputLabel>Color</InputLabel>
+                <Select value={color.value} onChange={colorHandlers.change}>
+                  {options}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6}>
+              <FormControl>
+                <FormLabel component="legend">Size</FormLabel>
+                <RadioGroup aria-label="size" value={size.value} onChange={sizeHandlers.change} row>
+                  {radios}
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} className={classes.rows}>
+            <Grid item xs={6}>
+              <CartButton hexCode={color.value} size={size.value} getColorName={getColorName}/>
+            </Grid>
+            <Grid item xs={6}>
+              <OrderButton name={name.value} age={age.value} valid={!name.error && !age.error} 
+                onClick={handleOrderClick} onSubmit={handleOrderSubmit} />
+            </Grid>
+          </Grid>
         </Grid>
-        <Grid item xs={3}>
-        <NumField fullWidth value={age} label="Age" onChange={handleChangeWith(setAge)}/>
+        <Grid item xs={6}>
+          <Illustration hexCode={color.value} size={size.value}/>
         </Grid>
       </Grid>
-      <Grid container spacing={2} className={classes.rows}>
-        <Grid item xs={3}>
-          <FormControl fullWidth className={classes.formControl}>
-            <InputLabel>Color</InputLabel>
-            <Select value={color} onChange={handleChangeWith(setColor)}>
-              {options}
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={3}>
-          <FormControl>
-            <FormLabel component="legend">Size</FormLabel>
-            <RadioGroup aria-label="size" value={size} onChange={handleChangeWith(setSize)} row>
-              {radios}
-            </RadioGroup>
-          </FormControl>
-        </Grid>
-      </Grid>
-      <Grid container spacing={2} className={classes.rows}>
-        <Grid item xs={3}>
-          <CartButton hexCode={color} size={size} hexCodeToName={hexCodeToName}/>
-        </Grid>
-      </Grid>
-      <OrderButton name={name} age={age} valid/>
       <List/>
     </Fragment>
   );
 };
 
 export default Cart;
-
-function handleChangeWith(setState: any) {
-  return (event: any) => setState(event.target.value)
-}
-// TODO move button to new file
-function CartButton(props: any) {
-  const {
-    hexCode,
-    size,
-    hexCodeToName
-  } = props
-  const {data: unitData} = useQuery(GET_UNITS);
-  const [disabled, setDisabled] = useState(true);
-  const {data: cartData} = useQuery(GET_CART_ITEM, {
-    variables: {
-      hexCode,
-      size,
-    }
-  });
-
-  useEffect(() => {
-    function canAddToCart(): boolean {
-      if (!unitData || !hexCode || !size) {
-        return false;
-      }
-      const {stockAmount} = unitData.units.find((x: any) => x.hexCode === hexCode && x.size === size)
-      const cartAmount = cartData ? cartData.cartItem.amount : 0;
-      return stockAmount > cartAmount;
-    }
-
-    setDisabled(!canAddToCart())
-  },[unitData, cartData, hexCode, size]);
-
-
-  const handleClick = () => {
-    const color = { hexCode, name: hexCodeToName.get(hexCode) };
-    addToCart({ color, size });
-  };
-  return (
-    <Button onClick={handleClick} variant="contained" color="primary" 
-      disabled={disabled}>Add</Button>
-  );
-}
 
 function List(props: any) {
   const {
@@ -229,58 +195,5 @@ function List(props: any) {
         </TableBody>
       </Table>
     </TableContainer>
-  );
-}
-
-const PLACE_ORDER = gql`
-  mutation placeOrder($age: Int!, $name: String!, $units: [OrderUnitInput]) {
-    placeOrder(params: {
-      age: $age
-      name: $name
-      units: $units
-    })
-  }
-`;
-// TODO move to another file
-const OrderButton: React.FC<any> = (props: any) => {
-  const {
-    name,
-    age,
-    valid
-  } = props;
-  const [disabled, setDisabled] = useState(true);
-  const {
-    data,
-    error,
-    loading
-  } = useQuery(GET_CART_ITEMS);
-  const [mutate] = useMutation(PLACE_ORDER);
-
-  useEffect(() => {
-    function canOrder(): boolean {
-      return valid && data.cartItems.length > 0;
-    }
-    setDisabled(!canOrder());
-  }, [valid, data]);
-
-  const handleClick = () => {
-    setDisabled(true);
-    const units = data.cartItems.map((x: any) => ({
-      amount: x.amount,
-      size: x.size,
-      hexCode: x.color.hexCode
-    }))
-    const numAge = parseInt(age);
-    mutate({
-      variables: {
-        age: numAge,
-        name,
-        units
-      }
-    })
-  }
-  return (
-    <Button onClick={handleClick} variant="contained" color="primary" 
-      disabled={disabled}>Order</Button>
   );
 }

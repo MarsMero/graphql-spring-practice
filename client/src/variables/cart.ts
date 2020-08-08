@@ -56,7 +56,10 @@ export const addToCart = ({color, size} : {color: Color, size: string}) => {
   }
 }
 
+export const clearCart = () => {
+  cartItemsVar([]);
+}
+
 function getIdFor(hexCode: string, size: string) {
   return hexCode + ':' + size;
 }
-

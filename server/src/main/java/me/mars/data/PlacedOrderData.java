@@ -1,5 +1,6 @@
 package me.mars.data;
 
+import io.leangen.graphql.annotations.GraphQLId;
 import io.leangen.graphql.annotations.types.GraphQLType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -16,6 +17,8 @@ import java.util.List;
 @AllArgsConstructor
 @GraphQLType(name = "PlacedOrder")
 public class PlacedOrderData {
+    @GraphQLId()
+    private Long id;
     private String name;
     private Integer age;
     private Instant timestamp;
